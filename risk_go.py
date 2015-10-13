@@ -15,16 +15,9 @@ def go():
 
   scFactory = scf.SparkContextFactory()
 
-  indexRowRDD = converter.numpy_2_indexRowRDD(scFactory.sc, testM) # RDD
-
-  # take indexedRow from indexedRowRDD based on ordering of the first
-  # element of the row element - a tuple
-  #[ERet, ECov, NEff] = ewr.ewstats(indexRowRDD, .6, 4,
-  #                  input_dim = testM.shape)
-
 
   # test with distributed computing
-  eww.ewstatswrap(testM, .6, 4, scFactory.sc)
+  eww.ewstatswrap(scFactory.sc, testM, .6, 4)
 
 
   scFactory.disconnect()

@@ -17,7 +17,10 @@ class distributedEwstats:
   
     # obtain dimension information of input return matrix
     NumObs = dimInfo[0] # long type
-    NumSeries = dimInfo[1] # long type
+    if len(dimInfo) == 1:
+      NumSeries = 1 # only 1 series - a vector
+    else:
+      NumSeries = dimInfo[1] # long type
   
     # validate input parameters
     if self.WindowLength is None:
