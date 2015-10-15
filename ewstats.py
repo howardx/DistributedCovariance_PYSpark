@@ -19,6 +19,12 @@ class distributedEwstats:
     NumObs = dimInfo[0] # long type
     if len(dimInfo) == 1:
       NumSeries = 1 # only 1 series - a vector
+      '''
+      1 D numpy array taken from column will be converted to row-like
+      automatically, hence reshape() is needed to convert row-like
+      array back to column-like for calculations
+      '''
+      self.RetSeries = self.RetSeries.reshape(NumObs, 1)
     else:
       NumSeries = dimInfo[1] # long type
   
@@ -36,7 +42,7 @@ class distributedEwstats:
   
     # obtain input data within window only
     self.RetSeries = self.RetSeries[NumObs - self.WindowLength : NumObs, ]
-  
+
     # calculate decay coefficients
     DecayPowers = numpy.arange(self.WindowLength - 1, -1, -1).reshape(
 	          self.WindowLength, 1)

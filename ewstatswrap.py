@@ -2,6 +2,8 @@ import ewstats as ew
 import numpy
 
 def ewstatswrap(sc, RetSeries, DecayFactor = None, WindowLength = None):
+  numpy.set_printoptions(suppress = True)
+  
   size = RetSeries.shape
   NumObs = size[0]
   NumSeries = size[1]
@@ -21,7 +23,7 @@ def ewstatswrap(sc, RetSeries, DecayFactor = None, WindowLength = None):
   vectorList = []
   pairList = []
 
-  for i in range(0, NumSeries - 1):
+  for i in range(0, NumSeries):
     # for each column/factor, need to calculate estimated expected return
     WindowUsed = WindowLength
     vectorI = RetSeries[:,i]
@@ -31,27 +33,37 @@ def ewstatswrap(sc, RetSeries, DecayFactor = None, WindowLength = None):
 	              DecayFactor, WindowUsed))
 
     # pairwise covariance needed between column/factor pairs
-    for j in range(0, NumSeries - 1):
+    for j in range(0, NumSeries):
       PairwiseRetSeries = elim_NaN_rows(
                           numpy.column_stack((vectorI, RetSeries[:,j])))
       WindowUsed = WindowLength
-      if WindowLength > PairwiseRetSeries.shape[1]:
-        WindowUsed = PairwiseRetSeries.shape[1]
+      if WindowLength > PairwiseRetSeries.shape[0]:
+        WindowUsed = PairwiseRetSeries.shape[0]
       pairList.append(ew.distributedEwstats(PairwiseRetSeries,
 	              DecayFactor, WindowUsed))
   
-  #print "\n\n unit tests start \n\n"
+  # checking input lists for RDD generation
   #RetSeries_test(vectorList)
   #RetSeries_test(pairList)
- 
-  distributeCompute(vectorList, sc)
-  distributeCompute(pairList, sc)
 
+  vectorResultList = distributeCompute(vectorList, sc)
+  pairResultList = distributeCompute(pairList, sc)
+
+  print aggregateResults(vectorResultList, [], ERet, ECov, Neff)
+  print pairResultList
+
+
+def aggregateResults(vectorResult, pairResult, returnStore, covStore,
+                     numEffObStore):
+  for i in range(0, len(returnStore)):
+     returnStore[i] = vectorResult[i][0][0]
+  return returnStore
+    
 
 def distributeCompute(numpyList, sc):
   ewdRDD = sc.parallelize(numpyList) # build RDD
   resultRDD = ewdRDD.map(lambda ewd : ewd.ewstats())
-  print resultRDD.take(resultRDD.count())
+  return resultRDD.take(resultRDD.count())
 
 
 def elim_NaN_rows(npa):
@@ -64,7 +76,7 @@ def elim_NaN_rows(npa):
 def RetSeries_test(ewstatsObjList):
   for obj in ewstatsObjList:
     print obj.RetSeries
-    print "one object done"
+    print "one obj\n"
 
 
 ##############################################################################
@@ -80,5 +92,4 @@ def ewstatswrapPOC(sc, RetSeries, DecayFactor = None, WindowLength = None):
   a = ewdRDD.map(lambda ewd : ewd.ewstats())
 
   print a.take(a.count())
-  print type(a.take(a.count()))
 
