@@ -1,5 +1,6 @@
 import ewstats as ew
 import numpy
+import itertools
 
 def ewstatswrap(sc, RetSeries, DecayFactor = None, WindowLength = None):
   numpy.set_printoptions(suppress = True)
@@ -7,11 +8,6 @@ def ewstatswrap(sc, RetSeries, DecayFactor = None, WindowLength = None):
   size = RetSeries.shape
   NumObs = size[0]
   NumSeries = size[1]
-
-  # return value initilization
-  ERet = numpy.zeros(NumSeries)
-  ECov = numpy.zeros((NumSeries, NumSeries))
-  Neff = numpy.zeros((NumSeries, NumSeries))
 
   # default values for non-required input arguments
   if WindowLength is None:
@@ -42,28 +38,50 @@ def ewstatswrap(sc, RetSeries, DecayFactor = None, WindowLength = None):
       pairList.append(ew.distributedEwstats(PairwiseRetSeries,
 	              DecayFactor, WindowUsed))
   
-  # checking input lists for RDD generation
+  # checking input lists which will be used for RDD generation
   #RetSeries_test(vectorList)
   #RetSeries_test(pairList)
 
   vectorResultList = distributeCompute(vectorList, sc)
   pairResultList = distributeCompute(pairList, sc)
 
-  print aggregateResults(vectorResultList, [], ERet, ECov, Neff)
-  print pairResultList
+  return aggregateResults(vectorResultList, pairResultList, NumSeries)
 
 
-def aggregateResults(vectorResult, pairResult, returnStore, covStore,
-                     numEffObStore):
-  for i in range(0, len(returnStore)):
-     returnStore[i] = vectorResult[i][0][0]
-  return returnStore
-    
+def aggregateResults(vectorResult, pairResult, NumSeries):
+  # return value initilization
+  ERet = numpy.empty([NumSeries,])
+  ECov = numpy.empty([NumSeries, NumSeries])
+  Neff = numpy.empty([NumSeries, NumSeries])
+
+  # colum/cell index generator
+  covCol = itertools.cycle(range(0, NumSeries))
+  effCol = itertools.cycle(range(0, NumSeries))
+  covColIndex = covCol.next()
+  effColIndex = effCol.next()
+
+  for (x, y), result in numpy.ndenumerate(vectorResult):
+    if y == 0: # only getting first column/cell of each row
+      ERet[x,] = result
+
+  for (x, y), result in numpy.ndenumerate(pairResult):
+    if y == 1: # second column/cell of each row - cov
+      ECov[x%NumSeries, covColIndex] = result[1][0]
+      if x%NumSeries == (NumSeries - 1):
+        covColIndex = covCol.next()
+
+    if y == 2: # third column/cell of each row - neff 
+      Neff[x%NumSeries, effColIndex] = result
+      if x%NumSeries == (NumSeries - 1):
+        effColIndex = effCol.next()
+
+  return ERet, ECov, Neff 
+
 
 def distributeCompute(numpyList, sc):
   ewdRDD = sc.parallelize(numpyList) # build RDD
   resultRDD = ewdRDD.map(lambda ewd : ewd.ewstats())
-  return resultRDD.take(resultRDD.count())
+  return numpy.array(resultRDD.take(resultRDD.count()))
 
 
 def elim_NaN_rows(npa):
@@ -76,7 +94,6 @@ def elim_NaN_rows(npa):
 def RetSeries_test(ewstatsObjList):
   for obj in ewstatsObjList:
     print obj.RetSeries
-    print "one obj\n"
 
 
 ##############################################################################
@@ -92,4 +109,3 @@ def ewstatswrapPOC(sc, RetSeries, DecayFactor = None, WindowLength = None):
   a = ewdRDD.map(lambda ewd : ewd.ewstats())
 
   print a.take(a.count())
-

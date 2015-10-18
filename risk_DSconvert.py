@@ -67,4 +67,8 @@ class dsConvert:
       matrix.append(indexedRow[1])
     return numpy.array(matrix)
 
+  def numpy_2_mat(self, np, filename):
+    with h5py.File(filename, 'w') as f:
+      dset = f.create_dataset("Cov")
+
 

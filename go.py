@@ -1,7 +1,6 @@
 import risk_DSconvert as ds
 import risk_SparkContextFactory as scf
 
-import ewstatswrap as eww
 import ComputeCovHistory as comp
 
 from datetime import datetime
@@ -13,7 +12,7 @@ def go():
   converter.setInputFile("C:\Users\Howard Xie\Desktop\Risk\dev.mat")
 
   # reading data elements from MAT file
-  ret_m = converter.MATreader("testM")
+  ret_m = converter.MATreader("testM") # factor return AND/OR alpha matrix
   date_m = converter.MATreader("DatesModel")
   lambda_m = converter.MATreader("Lambda")
   startD_m = converter.MATreader("StartDate")
@@ -40,11 +39,13 @@ def go():
   scFactory = scf.SparkContextFactory()
 
   # call maing function with data from MAT file
-  comp.ComputeCovHistory(scFactory.sc, ret, date, startD, endD, lambd,
-                          roll, startS, endS, qualcov)
+  result = comp.ComputeCovHistory(scFactory.sc,
+       ret, date, startD, endD, lambd, roll, startS, endS, qualcov)
 
   # Clear Spark Context and SparkSQL Context
   scFactory.disconnect()
+
+  converter.numpy_2_mat(result, "out.mat")
   
   endTime = datetime.now()
   print ("time took in seconds: " +
